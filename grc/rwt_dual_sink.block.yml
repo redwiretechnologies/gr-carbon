@@ -141,7 +141,7 @@ templates:
         base_address = ""
 
         if ${chip_num} == 0:
-            phy_name = "ad9361-phy-A"
+            phy_name = "ad9361-phy"
             rx_name = "cf-ad9361-A"
             tx_name = "cf-ad9361-dds-core-A"
             base_address = "0x9D000000"

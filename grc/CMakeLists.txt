@@ -22,5 +22,6 @@ install(FILES
   rwt_dual_source.block.yml
   rwt_dual_source_s16.block.yml
   rwt_dual_sink.block.yml
+  fmcomms5_source.block.yml
   DESTINATION share/gnuradio/grc/blocks
 )

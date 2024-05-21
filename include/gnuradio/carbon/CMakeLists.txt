@@ -11,5 +11,6 @@
 ########################################################################
 install(FILES
     api.h
+    fmcomms5_source.h
     DESTINATION include/gnuradio/carbon
 )

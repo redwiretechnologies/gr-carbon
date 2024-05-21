@@ -1,31 +1,16 @@
 #Copywrite 2018 Red Wire Technologies
 #Copywrite 2020 Red Wire Technology
-id: rwt_dual_source
-label: RWT Dual Source
-category: "[Kraken]"
+id: fmcomms5_source
+label: FMCOMMS5 Source
+category: "[RWT]"
 flags: throttle
 
 documentation: |-
-  RWT Dual Source Block
+  FMCOMMS5 Source Block
 
 file_format: 1
 
 parameters:
-  - id: chip_num
-    label: Chip Number
-    dtype: int
-    default: 0
-    options: [0, 1]
-  - id: rx1_en
-    label: RX1 Enable
-    dtype: bool
-    default: True
-    options: [True, False]
-  - id: rx2_en
-    label: RX2 Enable
-    dtype: bool
-    default: False
-    options: [True, False]
   - id: freq
     label: Frequency
     dtype: real
@@ -158,18 +143,12 @@ parameters:
     dtype: string
     default: ""
     hide: part
-  - id: escape
-    label: Packet Escape
+  - id: base_addr
+    label: Base Address
     category: Advanced Device
     dtype: int
-    default: '0xAAAAAAAAAAAAAAAA'
+    default: '0x9D000000'
     hide: part
-  - id: use_tags
-    label: Use Tags
-    category: Advanced Device
-    dtype: bool
-    default: True
-    options: [True, False]
   - id: force_reload
     label: Force Reload
     category: Advanced Device
@@ -183,22 +162,6 @@ parameters:
     dtype: int
     default: 32000
     hide: part
-  - id: correction_enable
-    label: Correction Enable
-    category: Advanced Device
-    dtype: int
-    default: 'True'
-    options: ['3', '0']
-    option_labels: ['True', 'False']
-    hide: part
-  - id: bypass_enable
-    label: CIC Bypass Enable
-    category: Advanced Device
-    dtype: bool
-    default: 'False'
-    options: ['1', '0']
-    option_labels: ['True', 'False']
-    hide: part
 
 inputs:
   - domain: message
@@ -211,19 +174,23 @@ outputs:
     label: ch0
   - domain: stream
     dtype: complex
-    hide: ${ sum([rx1_en, rx2_en]) < 2 }
-    optional: ${ sum([rx1_en, rx2_en]) < 2 }
     label: ch1
+  - domain: stream
+    dtype: complex
+    label: ch2
+  - domain: stream
+    dtype: complex
+    label: ch3
 
 asserts:
   - ${ (freq >= 70e6 and freq <= 6e9) }
   - ${ not (auto_filter and len(filter)) }
   - ${ (int(samplerate) >= 2084000) or (len(filter) > 0) or auto_filter }
-  - ${ sum([rx1_en, rx2_en]) > 0 }
 
 templates:
   imports: |-
     import rwt
+    from gnuradio import carbon
     import pmt
   make: |-
         None
@@ -233,7 +200,6 @@ templates:
           "samplerate": str(int(${samplerate})),
           "rx_rfport1": "${rfport1}",
           "rx_rfport2": "${rfport2}",
-          "escape": str(${escape}),
           "rx_gain1": str(${manual_gain}),
           "rx_gain1_mode": "${gain_mode}",
           "rx_gain2": str(${manual_gain}),
@@ -241,34 +207,14 @@ templates:
           "quadrature": str(int(${quadrature})),
           "rfdc": str(int(${rfdc})),
           "bbdc": str(int(${bbdc})),
-          "decimation_arbitrary": str(int(0)),
-          "correction_enable": str(int(${correction_enable})),
-          "bypass_enable": str(int(${bypass_enable})),
         }
         rwt_extra = {} if ${extra} == "" else dict(x.split('=') for x in ${extra}.split(','))
         rwt_cfg.update(rwt_extra)
 
-        phy_name = ""
-        rx_name = ""
-        tx_name = ""
-        base_address = ""
-
-        if ${chip_num} == 0:
-            phy_name = "ad9361-phy"
-            rx_name = "cf-ad9361-A"
-            tx_name = "cf-ad9361-dds-core-A"
-            base_address = "0x9D000000"
-        else:
-            phy_name = "ad9361-phy-B"
-            rx_name = "cf-ad9361-B"
-            tx_name = "cf-ad9361-dds-core-B"
-            base_address = "0x9E000000"
-
-        self.${id} = rwt.rwt_source(
-          pmt.to_pmt(rwt_cfg), ${rx1_en}, ${rx2_en},
-          int(base_address, 0), ${filter}, ${use_tags}, ${auto_filter},
-          "dual", ${force_reload}, ${buffer_size},
-          phy_name, rx_name, tx_name)
+        self.${id} = carbon.fmcomms5_source(
+          pmt.to_pmt(rwt_cfg),
+          ${base_addr}, ${filter}, ${auto_filter},
+          ${force_reload}, ${buffer_size})
 
   callbacks:
     - self.${id}.set_config("rx_freq", str(int(${freq})))
@@ -283,8 +229,6 @@ templates:
     - self.${id}.set_config("quadrature", str(int(${quadrature})))
     - self.${id}.set_config("rfdc", str(int(${rfdc})))
     - self.${id}.set_config("bbdc", str(int(${bbdc})))
-    - self.${id}.set_config("escape", str(${escape}))
-    - self.${id}.set_config("correction_enable", str(int(${correction_enable})))
     - |
       if ${extra} != "":
           cfg = dict(x.split('=') for x in ${extra}.split(','))

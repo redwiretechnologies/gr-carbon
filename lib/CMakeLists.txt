@@ -11,7 +11,17 @@
 ########################################################################
 include(GrPlatform) #define LIB_SUFFIX
 
+include_directories(${IIO_INCLUDE_DIRS} ${AD9361_INCLUDE_DIRS} ${RWT_INCLUDE_DIRS})
+
 list(APPEND carbon_sources
+    base_device_dual_sink.cc
+    base_device_dual_sink.h
+    base_device_dual_source.cc
+    base_device_dual_source.h
+    fmcomms5_source_impl.cc
+    fmcomms5_source_impl.h
+    rwt_base_block_dual_impl.cc
+    rwt_base_block_dual_impl.h
 )
 
 set(carbon_sources "${carbon_sources}" PARENT_SCOPE)
@@ -21,7 +31,11 @@ if(NOT carbon_sources)
 endif(NOT carbon_sources)
 
 add_library(gnuradio-carbon SHARED ${carbon_sources})
-target_link_libraries(gnuradio-carbon gnuradio::gnuradio-runtime)
+target_link_libraries(gnuradio-carbon gnuradio::gnuradio-runtime
+                      ${RWT_LIBRARIES}
+                      ${IIO_LIBRARIES}
+                      ${AD9361_LIBRARIES})
+
 target_include_directories(gnuradio-carbon
     PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
     PUBLIC $<INSTALL_INTERFACE:include>
