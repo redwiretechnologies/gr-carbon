@@ -26,6 +26,7 @@
 #include <gnuradio/io_signature.h>
 #include <volk/volk.h>
 #include <unistd.h>
+#include <time.h>
 #include "fmcomms5_source_impl.h"
 
 namespace gr {
@@ -91,7 +92,8 @@ fmcomms5_source_impl::fmcomms5_source_impl(
     m_autofilter(auto_filter),
     m_alloc_len(0),
     m_pkt_data(NULL),
-    m_data_interleaved(NULL)
+    m_data_interleaved(NULL),
+    running(false)
 {
 
     const char *handlers[] = {
@@ -135,18 +137,27 @@ fmcomms5_source_impl::ctrl_reg_handler(
     uint64_t value_u64;
 
     if (key == "rx_freq") {
+        clock_t t;
         value_u64 = (uint64_t)strtoull(value.c_str(), NULL, 0);
         //Set the frequency
         m_common->set_attr(key, value);
         //Stop the block
-        if(!m_in_constructor)
-            stop();
+        if(!m_in_constructor) {
+            running=false;
+            m_source->stop();
+        }
         //Sync
+        t = clock();
         ret = ad9361_fmcomms5_phase_sync(iio_create_local_context(), value_u64);
+        t = clock()-t;
+
+        printf("Time taken to sync %lf\n", ((double) t)/CLOCKS_PER_SEC);
         printf("Return value of sync - %d\n", ret);
         //Start the block back
-        if(!m_in_constructor)
-            start();
+        if(!m_in_constructor) {
+            m_source->start(true, true, true, true);
+            running = true;
+        }
     }
 }
 
@@ -197,11 +208,13 @@ fmcomms5_source_impl::work(
 
     max_pkt_size = noutput_items * 8;
 
+    if (!running)
+        return 0;
     if (m_alloc_len < max_pkt_size) {
         alloc_volk_buffers(max_pkt_size);
     }
 
-    while (pkt_idx < max_pkt_size) {
+    while (pkt_idx < max_pkt_size && running) {
         ret = m_source->read_until_next_tag_or_end(
             false,
             &m_pkt_data[pkt_idx],
@@ -215,9 +228,10 @@ fmcomms5_source_impl::work(
         if (ret == -ETIMEDOUT) {
             std::cerr << "Warning: rwt_source: timed out.\n";
             break;
-        } else if (ret < 0) {
+        }
+        else if (ret < 0) {
             std::cerr << "Warning: iio:source Buffer refill failed.\n";
-            return -1;
+            return 0;
         }
 
         if (!pkt_read_count && pkt_idx) {
@@ -230,7 +244,7 @@ fmcomms5_source_impl::work(
 
     }
 
-    if (!pkt_idx)
+    if (!pkt_idx || !running)
         return 0;
 
     /* Convert the types from short to complex numbers. */
@@ -277,6 +291,7 @@ fmcomms5_source_impl::start()
 {
     bool ret;
 
+    running=true;
     ret = rwt_base_block::start();
     if (!ret)
         return ret;

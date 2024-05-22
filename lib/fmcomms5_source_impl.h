@@ -68,6 +68,7 @@ private:
 
     bool m_in_constructor;
     bool m_autofilter;
+    bool running;
 
     unsigned long m_samplerate;
 
